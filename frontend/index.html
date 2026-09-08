@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Local Guide AI</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- 헤더 -->
+        <header class="header">
+
+            <h1>Local Guide AI</h1>
+
+            <p>
+                지역 관광 데이터를 기반으로 정보를 제공하는 AI 비서
+            </p>
+
+        </header>
+
+
+        <!-- 관광 데이터 요약 -->
+        <section class="summary-section">
+
+            <h2>📊 관광 데이터 요약</h2>
+
+            <div class="summary-grid">
+
+                <div class="summary-card">
+
+                    <span class="summary-label">
+                        분석 기간
+                    </span>
+
+                    <strong id="summary-period">
+                        -
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span class="summary-label">
+                        데이터 수
+                    </span>
+
+                    <strong id="summary-count">
+                        -
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span class="summary-label">
+                        평균 방문자 수
+                    </span>
+
+                    <strong id="summary-average">
+                        -
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span class="summary-label">
+                        최근 추세
+                    </span>
+
+                    <strong id="summary-trend">
+                        -
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- AI 채팅 -->
+        <section class="chat-section">
+
+            <h2>💬 AI 관광 데이터 비서</h2>
+
+
+            <div
+                id="chat-messages"
+                class="chat-messages"
+            >
+
+                <div class="message ai-message">
+
+                    <div class="message-label">
+                        Local Guide AI
+                    </div>
+
+                    <div class="message-content">
+                        안녕하세요!
+                        지역 관광 데이터에 대해
+                        궁금한 점을 질문해주세요.
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="loading"
+                class="loading hidden"
+            >
+                AI가 답변을 생성하고 있습니다...
+            </div>
+
+
+            <div class="chat-input-area">
+
+                <textarea
+                    id="question-input"
+                    placeholder="예: 충북의 2026년 상반기 관광객 추이를 알려줘"
+                    rows="3"
+                ></textarea>
+
+
+                <button id="send-button">
+                    질문하기
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- 관광 데이터 관리 -->
+        <section class="data-section">
+
+            <h2>📁 관광 데이터 관리</h2>
+
+
+            <!-- 데이터 입력 -->
+
+            <div class="data-form">
+
+                <input
+                    type="text"
+                    id="data-date"
+                    placeholder="기준년월 (예: 202608)"
+                    maxlength="6"
+                >
+
+
+                <input
+                    type="text"
+                    id="data-region"
+                    placeholder="지역 (예: 충북)"
+                >
+
+
+                <input
+                    type="number"
+                    id="data-visitor-count"
+                    placeholder="방문자 수"
+                    min="0"
+                >
+
+
+                <input
+                    type="number"
+                    id="data-previous-count"
+                    placeholder="전년동월 방문자 수"
+                    min="0"
+                >
+
+
+                <div class="calculated-rate">
+
+                    <span>
+                        자동 계산 증감률
+                    </span>
+
+                    <strong id="calculated-change-rate">
+                        -
+                    </strong>
+
+                </div>
+
+
+                <button id="add-data-button">
+                    데이터 추가
+                </button>
+
+            </div>
+
+
+            <div
+                id="data-result"
+                class="data-result"
+            ></div>
+
+
+            <!-- 데이터 목록 -->
+
+            <div class="data-list-section">
+
+                <div class="data-list-header">
+
+                    <h3>
+                        저장된 관광 데이터
+                    </h3>
+
+
+                    <button
+                        id="refresh-data-button"
+                        class="refresh-button"
+                    >
+                        🔄 새로고침
+                    </button>
+
+                </div>
+
+
+                <!-- 조회 필터 -->
+
+                <div class="data-filter">
+
+                    <select id="filter-region">
+
+                        <option value="">
+                            전체 지역
+                        </option>
+
+                        <option value="서울">
+                            서울
+                        </option>
+
+                        <option value="부산">
+                            부산
+                        </option>
+
+                        <option value="대구">
+                            대구
+                        </option>
+
+                        <option value="인천">
+                            인천
+                        </option>
+
+                        <option value="광주">
+                            광주
+                        </option>
+
+                        <option value="대전">
+                            대전
+                        </option>
+
+                        <option value="울산">
+                            울산
+                        </option>
+
+                        <option value="세종">
+                            세종
+                        </option>
+
+                        <option value="경기">
+                            경기
+                        </option>
+
+                        <option value="강원">
+                            강원
+                        </option>
+
+                        <option value="충북">
+                            충북
+                        </option>
+
+                        <option value="충남">
+                            충남
+                        </option>
+
+                        <option value="전북">
+                            전북
+                        </option>
+
+                        <option value="전남">
+                            전남
+                        </option>
+
+                        <option value="경북">
+                            경북
+                        </option>
+
+                        <option value="경남">
+                            경남
+                        </option>
+
+                        <option value="제주">
+                            제주
+                        </option>
+
+                    </select>
+
+
+                    <input
+                        type="text"
+                        id="filter-start-date"
+                        placeholder="시작월 (예: 202601)"
+                        maxlength="6"
+                    >
+
+
+                    <input
+                        type="text"
+                        id="filter-end-date"
+                        placeholder="종료월 (예: 202607)"
+                        maxlength="6"
+                    >
+
+
+                    <button
+                        id="filter-button"
+                        type="button"
+                    >
+                        🔍 조회
+                    </button>
+
+
+                    <button
+                        id="reset-filter-button"
+                        type="button"
+                        class="reset-filter-button"
+                    >
+                        초기화
+                    </button>
+
+
+                    <button
+                        id="graph-button"
+                        type="button"
+                        class="graph-button"
+                    >
+                        📈 그래프로 보기
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="filter-result"
+                    class="filter-result"
+                ></div>
+
+
+                <!-- 그래프 -->
+
+                <div
+                    id="chart-section"
+                    class="chart-section hidden"
+                >
+
+                    <div class="chart-header">
+
+                        <h3>
+                            📈 월별 관광객 추이
+                        </h3>
+
+                        <button
+                            id="close-chart-button"
+                            type="button"
+                            class="close-chart-button"
+                        >
+                            그래프 닫기
+                        </button>
+
+                    </div>
+
+
+                    <div class="chart-container">
+
+                        <canvas id="tourist-chart"></canvas>
+
+                    </div>
+
+                </div>
+
+
+                <!-- 데이터 표 -->
+
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    기준년월
+                                </th>
+
+                                <th>
+                                    지역
+                                </th>
+
+                                <th>
+                                    방문자 수
+                                </th>
+
+                                <th>
+                                    전년동월 방문자 수
+                                </th>
+
+                                <th>
+                                    증감률
+                                </th>
+
+                                <th>
+                                    관리
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="data-table-body">
+
+                            <tr>
+
+                                <td
+                                    colspan="6"
+                                    class="empty-message"
+                                >
+                                    데이터를 불러오는 중입니다.
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- 대화 기록 -->
+        <section class="conversation-section">
+
+            <h2>🕘 대화 기록</h2>
+
+
+            <div id="conversation-list">
+
+                <p class="empty-message">
+                    저장된 대화가 없습니다.
+                </p>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>

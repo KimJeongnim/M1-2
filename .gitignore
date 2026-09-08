@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# Firebase service account
+*firebase-adminsdk*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
