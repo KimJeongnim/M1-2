@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -30,7 +29,7 @@ class ChatRequest(BaseModel):
 def get_data_summary():
     """
     Firestore의 관광 데이터를 조회하여
-    AI에게 전달할 요약 정보를 생성한다.
+    전체 요약 정보와 지역별·월별 상세 데이터를 생성한다.
     """
 
     docs = db.collection("data").stream()
@@ -49,7 +48,8 @@ def get_data_summary():
             "date": str(data.get("date", "")),
             "region": data.get("region"),
             "visitor_count": visitor_count,
-            "change_rate": data.get("change_rate")
+            "change_rate": data.get("change_rate"),
+            "previous_count": data.get("previous_count")
         })
 
     if not results:
@@ -62,7 +62,8 @@ def get_data_summary():
                 "max": 0,
                 "min": 0
             },
-            "trend": "데이터 없음"
+            "trend": "데이터 없음",
+            "details": []
         }
 
     results.sort(
@@ -131,7 +132,8 @@ def get_data_summary():
             "max": maximum,
             "min": minimum
         },
-        "trend": trend
+        "trend": trend,
+        "details": results
     }
 
 
@@ -162,13 +164,14 @@ def create_openai_client():
 @router.post("")
 def chat(request: ChatRequest):
     """
-    Firestore 관광 데이터의 요약 정보를 AI에게 제공하고
+    Firestore 관광 데이터의 전체 요약 및
+    지역별·월별 상세 데이터를 AI에게 제공하고
     데이터에 근거한 답변을 생성한 후
     대화 내용을 Firestore에 자동 저장한다.
     """
 
     try:
-        # 1. Firestore 관광 데이터 요약
+        # 1. Firestore 관광 데이터 조회
         summary = get_data_summary()
 
         # 2. 사용할 모델
@@ -177,7 +180,20 @@ def chat(request: ChatRequest):
             "gpt-5-mini"
         )
 
-        # 3. AI 시스템 프롬프트
+        # 3. 상세 데이터를 AI가 이해하기 쉬운 형태로 구성
+        detail_text = ""
+
+        for item in summary["details"]:
+            detail_text += (
+                f"- 날짜: {item['date']}, "
+                f"지역: {item['region']}, "
+                f"방문자 수: {item['visitor_count']:,}명, "
+                f"전년동월 방문자 수: "
+                f"{item['previous_count']:,}명, "
+                f"증감률: {item['change_rate']}%\n"
+            )
+
+        # 4. AI 시스템 프롬프트
         system_prompt = f"""
 당신은 'Local Guide AI'라는 지역 관광 데이터 분석 비서입니다.
 
@@ -210,14 +226,29 @@ def chat(request: ChatRequest):
 {summary["trend"]}
 
 ==================================================
+[지역별·월별 상세 데이터]
+==================================================
+
+{detail_text}
+
+==================================================
 [매우 중요한 답변 원칙]
 ==================================================
 
-1. 반드시 위에 제공된 관광 데이터에 근거하여 답변하세요.
+1. 반드시 위에 제공된 관광 데이터에 근거해서 답변하세요.
 
-2. 제공된 데이터에 존재하지 않는 사실을 만들어내지 마세요.
+2. 지역별·월별 질문에는 위의 상세 데이터를 사용하세요.
 
-3. 특히 다음과 같은 정보는 현재 데이터에 없으므로
+3. 사용자가 특정 지역을 질문하면 해당 지역의 실제 데이터를 찾아서 답변하세요.
+
+4. 사용자가 특정 월을 질문하면 해당 날짜의 실제 데이터를 찾아서 답변하세요.
+
+5. 사용자가 특정 지역의 여러 달 추이를 질문하면
+   해당 지역의 여러 월 데이터를 비교해서 답변하세요.
+
+6. 제공된 데이터에 존재하지 않는 사실을 만들어내지 마세요.
+
+7. 특히 다음과 같은 정보는 현재 데이터에 없으므로
    사실처럼 단정해서 말하지 마세요.
 
    - 코로나19 또는 팬데믹
@@ -236,44 +267,38 @@ def chat(request: ChatRequest):
    - 축제나 행사 효과
    - 기타 외부 요인
 
-4. 사용자가 감소나 증가의 '원인'을 물어보더라도
+8. 사용자가 증가나 감소의 '원인'을 물어보더라도
    현재 제공된 데이터만으로 원인을 확인할 수 없다면
+
    "현재 데이터만으로는 원인을 확인할 수 없습니다."
+
    라고 명확하게 말하세요.
 
-5. 데이터에서 직접 확인할 수 있는 사실과
+9. 데이터에서 직접 확인할 수 있는 사실과
    AI가 해석한 내용을 구분하세요.
 
-6. 숫자를 제시할 때는 가능한 한 정확한 값을 사용하고
-   천 단위 구분기호를 사용하세요.
+10. 숫자를 제시할 때는 가능한 한 정확한 값을 사용하고
+    천 단위 구분기호를 사용하세요.
 
-7. 증감률을 설명할 때는 제공된 증감률 데이터를 기준으로
-   설명하세요.
+11. 증감률을 설명할 때는 제공된 증감률 데이터를 기준으로
+    설명하세요.
 
-8. 평균, 최대, 최소 등의 통계값을 설명할 때
-   해당 값이 무엇을 의미하는지 명확하게 설명하세요.
+12. 평균, 최대, 최소 등의 통계값을 설명할 때
+    해당 값이 무엇을 의미하는지 명확하게 설명하세요.
 
-9. 사용자가 현재 제공된 요약 정보만으로 답하기 어려운
-   세부적인 질문을 하면 억지로 답하지 마세요.
+13. 사용자가 현재 제공된 데이터에 없는 내용을 질문하면
+    억지로 답하지 마세요.
 
-   예:
-   "충북의 2026년 1월부터 7월까지 월별 추이를 알려줘."
-
-   이런 질문에 필요한 세부 월별 데이터가
-   현재 프롬프트에 제공되지 않았다면
-   "현재 제공된 요약 정보만으로는 충북의 월별 추이를
-   정확하게 확인할 수 없습니다."라고 답하세요.
-
-10. 사용자가 관광 데이터와 관련 없는 질문을 하면
+14. 관광 데이터와 관련 없는 질문을 하면
     현재 AI가 제공할 수 있는 범위가 지역 관광 데이터 분석임을
     간단하게 안내하세요.
 
-11. 답변은 한국어로 자연스럽고 이해하기 쉽게 작성하세요.
+15. 답변은 한국어로 자연스럽고 이해하기 쉽게 작성하세요.
 
-12. 과도한 추측이나 일반적인 관광 상식을 이용해
+16. 과도한 추측이나 일반적인 관광 상식을 이용해
     데이터를 설명하지 마세요.
 
-13. 데이터가 부족하면 부족하다고 솔직하게 말하는 것이
+17. 데이터가 부족하면 부족하다고 솔직하게 말하는 것이
     임의의 정보를 만들어내는 것보다 우선합니다.
 
 ==================================================
@@ -292,11 +317,10 @@ def chat(request: ChatRequest):
 불필요하게 긴 답변을 만들지 마세요.
 """
 
-
-        # 4. OpenAI 호환 API 클라이언트 생성
+        # 5. OpenAI 호환 API 클라이언트 생성
         client = create_openai_client()
 
-        # 5. AI 답변 생성
+        # 6. AI 답변 생성
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -311,7 +335,7 @@ def chat(request: ChatRequest):
             ]
         )
 
-        # 6. AI 응답 가져오기
+        # 7. AI 응답 가져오기
         answer = response.choices[0].message.content
 
         if not answer:
@@ -319,7 +343,7 @@ def chat(request: ChatRequest):
                 "죄송합니다. AI 답변을 생성하지 못했습니다."
             )
 
-        # 7. 대화 메시지 구성
+        # 8. 대화 메시지 구성
         messages = [
             {
                 "role": "user",
@@ -331,7 +355,7 @@ def chat(request: ChatRequest):
             }
         ]
 
-        # 8. Firestore에 대화 저장
+        # 9. Firestore에 대화 저장
         conversation_data = {
             "question": request.question,
             "answer": answer,
@@ -344,7 +368,7 @@ def chat(request: ChatRequest):
             "conversations"
         ).add(conversation_data)
 
-        # 9. API 응답
+        # 10. API 응답
         return {
             "question": request.question,
             "answer": answer,
@@ -359,4 +383,3 @@ def chat(request: ChatRequest):
             status_code=500,
             detail=f"AI 답변 생성 중 오류가 발생했습니다: {str(e)}"
         )
-
