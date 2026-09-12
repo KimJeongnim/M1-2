@@ -1,7 +1,59 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from firebase_config import db
 from schemas.data import DataCreate, DataUpdate
 
+
+class PreviousDataResponse(BaseModel):
+    found: bool
+    date: str
+    region: str
+    previous_count: Optional[int] = None
+
+
+class MetricsResponse(BaseModel):
+    total: int
+    average: float
+    max: int
+    min: int
+
+
+class SummaryResponse(BaseModel):
+    period: Optional[str] = None
+    count: int
+    metrics: MetricsResponse
+    trend: str
+
+
+class DataResponse(BaseModel):
+    id: Optional[str] = None
+    date: str
+    region: str
+    visitor_count: int
+    previous_count: int
+    change_rate: float
+
+
+class CreateUpdateResponse(BaseModel):
+    message: str
+    id: str
+    data: dict
+
+
+class DataListResponse(BaseModel):
+    count: int
+    data: list[DataResponse]
+
+
+class DeleteAllResponse(BaseModel):
+    message: str
+    deleted_count: int
+
+
+class DeleteResponse(BaseModel):
+    message: str
+    id: str
 router = APIRouter(
     prefix="/api/data",
     tags=["data"]
@@ -14,7 +66,7 @@ def calculate_change_rate(visitor_count: int, previous_count: int) -> float:
     return round(((visitor_count - previous_count) / previous_count) * 100, 1)
 
 
-@router.get("/previous")
+@router.get("/previous", response_model=PreviousDataResponse)
 def get_previous_data(
     date: str = Query(..., min_length=6, max_length=6, description="기준년월 (예: 202608)"),
     region: str = Query(..., description="지역명 (예: 대전)")
@@ -45,7 +97,7 @@ def get_previous_data(
     }
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=SummaryResponse)
 def get_data_summary():
     docs = db.collection("data").stream()
     results = []
@@ -91,7 +143,7 @@ def get_data_summary():
     }
 
 
-@router.post("")
+@router.post("", response_model=CreateUpdateResponse)
 def create_data(data: DataCreate):
     change_rate = calculate_change_rate(data.visitor_count, data.previous_count)
     save_data = {
@@ -105,7 +157,7 @@ def create_data(data: DataCreate):
     return {"message": "데이터가 저장되었습니다.", "id": doc_ref[1].id, "data": save_data}
 
 
-@router.get("")
+@router.get("", response_model=DataListResponse)
 def get_data(
     region: str | None = Query(default=None, description="지역명"),
     start_date: str | None = Query(default=None, min_length=6, max_length=6, description="조회 시작월"),
@@ -127,7 +179,7 @@ def get_data(
     return {"count": len(results), "data": results}
 
 
-@router.delete("")
+@router.delete("", response_model=DeleteAllResponse)
 def delete_all_data():
     docs = db.collection("data").stream()
     deleted_count = 0
@@ -137,7 +189,7 @@ def delete_all_data():
     return {"message": "전체 데이터가 삭제되었습니다.", "deleted_count": deleted_count}
 
 
-@router.put("/{data_id}")
+@router.put("/{data_id}", response_model=CreateUpdateResponse)
 def update_data(data_id: str, data: DataUpdate):
     doc_ref = db.collection("data").document(data_id)
     doc = doc_ref.get()
@@ -156,7 +208,7 @@ def update_data(data_id: str, data: DataUpdate):
     return {"message": "데이터가 수정되었습니다.", "id": data_id, "data": updated_data}
 
 
-@router.delete("/{data_id}")
+@router.delete("/{data_id}", response_model=DeleteResponse)
 def delete_data(data_id: str):
     doc_ref = db.collection("data").document(data_id)
     doc = doc_ref.get()
