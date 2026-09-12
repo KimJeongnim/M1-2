@@ -485,7 +485,7 @@ FastAPI 서버는 Render를 이용하여 배포할 예정이며,
 
 ```text
 Backend URL
-배포 후 입력
+https://local-guide-ai.onrender.com
 ```
 
 배포 시 다음과 같은 환경변수를 Render에 설정합니다.
@@ -504,7 +504,7 @@ HTML/CSS/JavaScript 기반 프론트엔드는 현재 FastAPI 서버를 통해 �
 
 ```text
 Frontend URL
-배포 후 입력
+https://local-guide-ai.onrender.com
 ```
 
 프론트엔드를 별도로 배포하는 경우 배포된 Backend API 주소에 맞게 API 서버 주소를 설정합니다.
